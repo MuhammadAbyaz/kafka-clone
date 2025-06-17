@@ -7,10 +7,6 @@ import (
 	"os"
 )
 
-// Ensures gofmt doesn't remove the "net" and "os" imports in stage 1 (feel free to remove this!)
-var _ = net.Listen
-var _ = os.Exit
-
 func handleConnection (conn net.Conn){
 	defer conn.Close()
 	for{
@@ -23,8 +19,18 @@ func handleConnection (conn net.Conn){
 		break
 	}
 
-	received.Write(buff[4:12])
-	conn.Write(buff[4:12])
+	apiVersion:= buff[6:8]
+	correlationId := buff[8:12]
+	message_size := []byte{0,0,0,0}
+
+	response:= append(message_size, correlationId...)
+
+	if bytes.Compare(apiVersion, []byte{0,4}) == 1 {
+		errorCode := []byte{0,23}
+		response = append(response, errorCode...)
+	}
+	received.Write(response)
+	conn.Write(response)
 	}
 }
 
