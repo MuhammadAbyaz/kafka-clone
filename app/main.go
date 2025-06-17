@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"net"
 	"os"
@@ -22,8 +23,10 @@ func handleConnection (conn net.Conn){
 		fmt.Println("Error reading buffer: ", err.Error())
 		break
 	}
-	received.Write(buff)
-	conn.Write(buff[8:12])
+	correlationId:= hex.EncodeToString(buff[8:12])
+	received.Write([]byte(correlationId))
+
+	conn.Write([]byte(correlationId))
 	}
 }
 
