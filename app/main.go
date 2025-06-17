@@ -26,7 +26,7 @@ func handleConnection (conn net.Conn){
 	response:= append(message_size, correlationId...)
 
 	if bytes.Compare(apiVersion, []byte{0,4}) == 1 {
-		errorCode := []byte{0,23}
+		errorCode := []byte{0,35}
 		response = append(response, errorCode...)
 	}
 	received.Write(response)
