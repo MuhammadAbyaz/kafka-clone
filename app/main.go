@@ -22,9 +22,9 @@ func handleConnection (conn net.Conn){
 		fmt.Println("Error reading buffer: ", err.Error())
 		break
 	}
-	
-	received.Write(buff[8:12])
-	conn.Write(buff[8:12])
+
+	received.Write(buff[4:12])
+	conn.Write(buff[4:12])
 	}
 }
 
