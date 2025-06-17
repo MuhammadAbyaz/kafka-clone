@@ -23,7 +23,7 @@ func handleConnection (conn net.Conn){
 		break
 	}
 	received.Write(buff)
-	conn.Write([]byte{0,0,0,0,0,0,0,7})
+	conn.Write(buff[8:12])
 	}
 }
 
