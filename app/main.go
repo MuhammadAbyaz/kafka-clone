@@ -7,25 +7,30 @@ import (
 	"os"
 )
 
-func toResponse (
+func handleRequest (
 	request []byte,
-) []byte{
-	response := []byte{}
+	conn net.Conn,
+) {
 	responseHeader := []byte{}
 	messageSize := make([]byte, 4)
-	errorCode := uint16(0)
+	errorCode := []byte{0,0}
 	apiVersion := binary.BigEndian.Uint16(request[6:8])
-	apiKey := uint16(18)
-	correlationId := binary.BigEndian.Uint32(request[8:12])
 	if apiVersion > 4{
-		errorCode = uint16(35)
+		errorCode = []byte{0,35}
 	}
-	responseHeader = append(responseHeader, messageSize...)
-	responseHeader = append(responseHeader, byte(apiKey), byte(apiVersion), byte(correlationId), byte((errorCode)))
+
+	responseHeader = append(responseHeader, request[8:12]...)
+	responseHeader = append(responseHeader, errorCode...)
+	responseHeader = append(responseHeader, 2)
+	responseHeader = append(responseHeader, []byte{0,18}...) 
+	responseHeader = append(responseHeader, []byte{0,0}...) 
+	responseHeader = append(responseHeader, []byte{0,4}...)
+	responseHeader = append(responseHeader, 0)
+	responseHeader = append(responseHeader, []byte{0,0,0,0}...)
+	responseHeader = append(responseHeader, 0)
 	binary.BigEndian.PutUint32(messageSize, uint32(len(responseHeader)))
-	response = append(response, messageSize...)
-	response = append(response, responseHeader...)
-	return response
+	conn.Write(messageSize)
+	conn.Write(responseHeader)
 }
 
 func handleConnection (conn net.Conn){
@@ -40,8 +45,7 @@ func handleConnection (conn net.Conn){
 		fmt.Println("Error reading buffer: ", err.Error())
 		break
 	}
-	response := toResponse(request)
-	conn.Write(response)
+	handleRequest(request, conn)
 	}
 }
 
