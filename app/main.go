@@ -1,35 +1,46 @@
 package main
 
 import (
-	"bytes"
+	"encoding/binary"
 	"fmt"
 	"net"
 	"os"
 )
 
+func toResponse (
+	request []byte,
+) []byte{
+	response := []byte{}
+	responseHeader := []byte{}
+	messageSize := make([]byte, 4)
+	errorCode := uint16(0)
+	apiVersion := binary.BigEndian.Uint16(request[6:8])
+	apiKey := uint16(18)
+	correlationId := binary.BigEndian.Uint32(request[8:12])
+	if apiVersion > 4{
+		errorCode = uint16(35)
+	}
+	responseHeader = append(responseHeader, messageSize...)
+	responseHeader = append(responseHeader, byte(apiKey), byte(apiVersion), byte(correlationId), byte((errorCode)))
+	binary.BigEndian.PutUint32(messageSize, uint32(len(responseHeader)))
+	response = append(response, messageSize...)
+	response = append(response, responseHeader...)
+	return response
+}
+
 func handleConnection (conn net.Conn){
 	defer conn.Close()
 	for{
-	received := bytes.Buffer{}
-	buff := make([]byte, 1024)
 
-	_,err := conn.Read(buff)
+	request := make([]byte, 1024)
+
+	_,err := conn.Read(request)
+
 	if err != nil {
 		fmt.Println("Error reading buffer: ", err.Error())
 		break
 	}
-
-	apiVersion:= buff[6:8]
-	correlationId := buff[8:12]
-	message_size := []byte{0,0,0,0}
-
-	response:= append(message_size, correlationId...)
-
-	if bytes.Compare(apiVersion, []byte{0,4}) == 1 {
-		errorCode := []byte{0,35}
-		response = append(response, errorCode...)
-	}
-	received.Write(response)
+	response := toResponse(request)
 	conn.Write(response)
 	}
 }
