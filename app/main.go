@@ -7,37 +7,76 @@ import (
 	"os"
 )
 
-func handleRequest (
-	request []byte,
-	conn net.Conn,
-) {
+func handleRequest(request []byte, conn net.Conn) {
 	responseHeader := []byte{}
 	messageSize := make([]byte, 4)
-	errorCode := []byte{0,0}
-	apiVersion := binary.BigEndian.Uint16(request[6:8])
-	if apiVersion > 4{
-		errorCode = []byte{0,35}
+	correlationId := request[8:12]
+	responseHeader = append(responseHeader, correlationId...)
+
+	if binary.BigEndian.Uint16(request[6:]) == 4 {
+		apiKey := binary.BigEndian.Uint16(request[4:])
+
+		responseHeader = append(responseHeader, []byte{0,0}...) // error code
+		responseHeader = append(responseHeader, 0x03) // array length for api keys
+		responseHeader = append(responseHeader, []byte{0,byte(apiKey)}...) // first api key
+		responseHeader = append(responseHeader, []byte{0,4}...) // min ver
+		responseHeader = append(responseHeader, []byte{0,4}...) // max ver
+		responseHeader = append(responseHeader, 0) // tag buffer
+
+		responseHeader = append(responseHeader, []byte{0,75}...) // api key
+		responseHeader = append(responseHeader, []byte{0,0}...) // min ver
+		responseHeader = append(responseHeader, []byte{0,0}...) // max ver
+		responseHeader = append(responseHeader, 0) // tag buffer
+
+		responseHeader = append(responseHeader, []byte{0,0,0,0}...) // throttle
+		responseHeader = append(responseHeader, 0) // tag buffer
+		binary.BigEndian.PutUint32(messageSize, uint32(len(responseHeader)))
+
+	} else if binary.BigEndian.Uint16(request[6:]) == 0 {
+		responseHeader = append(responseHeader, 0x00)                    // tag buffer
+		responseHeader = append(responseHeader, []byte{0, 0, 0, 0}...)   // throttle
+		
+		offset := 12
+		offset++
+		
+		clientIdLen := int(request[offset])
+		offset++ // skip length byte
+		offset += clientIdLen // skip client ID
+		offset++ // skip tag buffer after client ID
+		
+		// Parse topic array (compact array)  
+		topicArrayLength := int(request[offset]) - 1
+		offset++
+		
+		responseHeader = append(responseHeader, byte(topicArrayLength+1)) // topic array length
+		
+		for range topicArrayLength {
+			topicLen := int(request[offset]) - 1  // topic name length
+			offset++
+			topicName := request[offset : offset+topicLen]
+			offset += topicLen
+			
+			responseHeader = append(responseHeader, []byte{0, 3}...)           // error code
+			responseHeader = append(responseHeader, byte(topicLen+1))          // topic name length
+			responseHeader = append(responseHeader, topicName...)              // topic name
+			responseHeader = append(responseHeader, make([]byte, 16)...)       // topic ID
+			responseHeader = append(responseHeader, 0)                         // is internal
+			responseHeader = append(responseHeader, 0x01)                      // partition array length
+			responseHeader = append(responseHeader, []byte{0, 0, 0, 0}...)     // topic auth op
+			responseHeader = append(responseHeader, 0)                         // tag buffer
+		}
+		
+		responseHeader = append(responseHeader, 0xff)  // next cursor
+		responseHeader = append(responseHeader, 0)     // tag buffer
+		binary.BigEndian.PutUint32(messageSize, uint32(len(responseHeader)))
+	} else{
+		responseHeader = append(responseHeader, []byte{0,35}...)
 	}
-
-	responseHeader = append(responseHeader, request[8:12]...)
-	responseHeader = append(responseHeader, errorCode...)
-	responseHeader = append(responseHeader, 3)
-	responseHeader = append(responseHeader, []byte{0,18}...) 
-	responseHeader = append(responseHeader, []byte{0,0}...) 
-	responseHeader = append(responseHeader, []byte{0,4}...)
-	responseHeader = append(responseHeader, 0)
-
-	responseHeader = append(responseHeader, []byte{0,75}...)
-	responseHeader = append(responseHeader, []byte{0,0}...)
-	responseHeader = append(responseHeader, []byte{0,0}...)
-	responseHeader = append(responseHeader, 0)
 	
-	responseHeader = append(responseHeader, []byte{0,0,0,0}...)
-	responseHeader = append(responseHeader, 0)
-	binary.BigEndian.PutUint32(messageSize, uint32(len(responseHeader)))
 	conn.Write(messageSize)
 	conn.Write(responseHeader)
 }
+
 
 func handleConnection (conn net.Conn){
 	defer conn.Close()
