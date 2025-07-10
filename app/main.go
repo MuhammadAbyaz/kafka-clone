@@ -21,11 +21,17 @@ func handleRequest (
 
 	responseHeader = append(responseHeader, request[8:12]...)
 	responseHeader = append(responseHeader, errorCode...)
-	responseHeader = append(responseHeader, 2)
+	responseHeader = append(responseHeader, 3)
 	responseHeader = append(responseHeader, []byte{0,18}...) 
 	responseHeader = append(responseHeader, []byte{0,0}...) 
 	responseHeader = append(responseHeader, []byte{0,4}...)
 	responseHeader = append(responseHeader, 0)
+
+	responseHeader = append(responseHeader, []byte{0,75}...)
+	responseHeader = append(responseHeader, []byte{0,0}...)
+	responseHeader = append(responseHeader, []byte{0,0}...)
+	responseHeader = append(responseHeader, 0)
+	
 	responseHeader = append(responseHeader, []byte{0,0,0,0}...)
 	responseHeader = append(responseHeader, 0)
 	binary.BigEndian.PutUint32(messageSize, uint32(len(responseHeader)))
